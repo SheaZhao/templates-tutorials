@@ -1,0 +1,174 @@
+---
+title: "Biostats_Mod1"
+author: "Shea Zhao"
+output:
+  html_document:
+    toc: true
+  pdf_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## About Our Data
+Our data comes from: https://vincentarelbundock.github.io/Rdatasets/datasets.html
+We will be using the dataset "socsupport.csv" from R package DAAG. The data dictionary is here: https://vincentarelbundock.github.io/Rdatasets/doc/DAAG/socsupport.html
+
+
+## Identify Varibles
+Identify at least 3 quantitative variables and 2 categorical variables that they will analyze using research questions.
+```{r}
+# first load & view the data
+data <- read.csv("/Users/shea/Documents/Berkeley Biostats/socsupport.csv")
+head(data)
+
+```
+
+
+The documentation describes this dataset as on "social and other kinds of support".Some of the variables are self-explanatory, i.e."gender" has two levels: "female" & "male". The levels for other variables are less interpretable, so we'll need to take a closer look at them and make an educated guess.
+
+```{}
+g <- (levels(my_data$gender))
+View(g)
+```
+
+The variable, "country", for instance, is less straight forward. It's levels are "australia" & "other"
+
+```{}
+C <- (levels(my_data$country))
+View(C)
+```
+
+"firstyr" is only described as "a factor with levels first year, other". Perhaps level "first year" indicates the index survey measure & the level "other" indicates a follow-up survey?
+
+"age" is described as "age, in years, with levels 18-20, 21-24, 25-30, 31-40,40+".
+"marital" is a factor with levels married, other, single.
+"livewith" is a factor with levels alone, friends, other, parents, partner, residences.
+"employment" is a factor with levels employed fulltime, employed part-time, govt assistance, other, parental support.
+"enrolment" is a factor with levels full-time, part-time, <NA>.
+
+The remaining variables are each a score of various indicators for emotional support measured by the survey. 
+
+```{r}
+# we can verify this description of the data by looking at the structure of the dataset
+str(data)
+
+```
+
+
+## Feature Engineering
+We'll need to prepare our data before we can begin to analyze it.
+
+```{r}
+summary(data)
+
+#install.packages("ggplot2") # install ggplot if you haven't alredy
+library(ggplot2)
+
+# now we can make histograms, density curves, and boxplots, but first we'll need to convert the "integer"" variables to "numeric"
+sapply(data, class) # notice variables like BDI are classified as "integer"
+```
+
+```{r}
+# Let's make the data a dataframe so it's easier to work with
+# You can think of a DataFrame as a group of Series that share an index (in this case the column headers). This makes it easy to select specific columns.
+
+my_data <- as.data.frame(data)
+head(my_data)
+
+```
+
+```{r}
+cols.num <- c("emotional", "emotionalsat", "tangible", "tangiblesat", "affect","affectsat", "psi", "psisat", "esupport", "psupport", "supsources", "BDI")
+my_data[cols.num] <- sapply(my_data[cols.num],as.numeric) # we save this to a new dataframe called "my_data""
+sapply(my_data, class) # now BDI is "numeric"
+
+```
+
+## Basic Summary Stats
+Identify 4-5 questions that can be answered by the file. These should involve the quantitative and categorical variables identified.
+
+First let's get a feel for our sample demographics - who's in our dataset?
+
+```{r}
+ggplot(my_data, aes(x = my_data$age, fill = my_data$gender)) +
+  geom_histogram(binwidth = 1, alpha=.5, size = 0.1,color="white", stat = "count") # use stat = "count" b/c age is discrete not continuous varible
+
+```
+
+The bargraph above shows that our sample is overwhelmingly female and relatively young. 
+
+```{r}
+# install.packages("dplyr")
+library(dplyr) # make sure you have dplyr!
+library(magrittr) # and migrattr for  %>% 
+```
+
+```{r}
+# let's make a contigency table to look at mean age & gender
+
+# the count & proportion of the sample by age
+
+my_data %>%
+  count(age) %>%
+  mutate(prop = prop.table(n))
+```
+
+```{r}
+# the count & proportion of the sample by gender
+my_data %>%
+  count(gender) %>%
+  mutate(prop = prop.table(n))
+
+```
+
+```{r}
+# age & gender together
+my_data %>%
+  count(age, gender) %>%
+  mutate(prop = prop.table(n))
+```
+
+Now let's look at the distribution of some of our varibles. Below is a histogram showing the distribution of the variable "tangible", representing scores of tangible social support. We can see that the data is highly skewed to right. The red dashed line represents the mean score for respondents.
+
+```{r}
+ggplot(my_data,aes(x=my_data$`tangible`))+
+  geom_histogram(aes(y=..density..), binwidth = 1,size = 0.1,      # Histogram with density instead of count on y-axis
+               colour="black", fill="white") +
+  geom_density(alpha=.2, fill="#FF6666") +
+  geom_vline(aes(xintercept = mean(tangible, na.rm=T)),   # Ignore NA values for mean
+             color = "red", linetype = "dashed", size=1)
+
+```
+
+We can also look at variables multiple variables at once - like th affect of social support, measured by "affect", and how it is distributed by age:
+
+```{r}
+ggplot(my_data, aes(x = age, y = affect, fill = age)) + geom_boxplot()
+```
+
+Perhpas we would like to know how Beck Depression Index (BDI) scores are associated with emotional support by gender? Adding a regression line will enable us to more clearly see if there are any trends as well as the 95% confidence interval.
+
+```{r}
+ggplot(my_data, aes(x = BDI, y = emotional, color = gender)) +
+  geom_point(shape=1) +    # Use hollow circles
+  geom_smooth(method=lm)   # Add linear regression line 
+#  (by default includes 95% confidence region)
+```
+
+We can further calculate the correlation between specific variables like gender and marital status, for example.
+
+```{r}
+cor(rank(my_data$gender), rank(my_data$marital)) # us spearman rank correlation for non-numeric variables
+
+```
+
+Convert to pdf
+
+```{r}
+# install.packages("rmarkdown")
+# library(rmarkdown)
+# render("Biostats_Mod1.Rmd", "pdf_document")
+```
+
